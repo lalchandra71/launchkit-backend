@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: launchkit-backend
+    env: node
+    buildCommand: npm install && npx nest build
+    startCommand: node dist/main
+    envVars:
+      - key: NODE_ENV
+        value: production
