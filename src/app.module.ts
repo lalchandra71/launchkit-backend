@@ -25,6 +25,9 @@ import { Project } from './organization/entities/project.entity';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get('DATABASE_URL'),
+        extra: {
+          family: 4, //FORCE IPv4
+        },
         entities: [User, Organization, Invitation, Membership, Subscription, ApiKey, Activity, Project],
         synchronize: true,
       }),
