@@ -44,16 +44,13 @@ export class WebhookController {
       'STRIPE_WEBHOOK_SECRET',
     );
 
-    console.log('inside webhook');
+    console.log('Webhook received, body type:', typeof req.body);
     
-    let payload: Buffer | string;
+    let payload: Buffer | string = req.body;
     
-    if (req.body && Buffer.isBuffer(req.body)) {
-      payload = req.body;
-    } else if (req.rawBody) {
-      payload = req.rawBody;
-    } else {
-      payload = JSON.stringify(req.body);
+    if (!payload || !Buffer.isBuffer(payload)) {
+      console.error('No buffer body found');
+      throw new Error('Invalid webhook payload');
     }
 
     let event: any;
@@ -63,6 +60,7 @@ export class WebhookController {
         signature,
         webhookSecret,
       );
+      console.log('Webhook event verified:', event.type);
     } catch (err) {
       console.error('Webhook signature verification failed:', err.message);
       throw new Error(`Webhook signature verification failed`);

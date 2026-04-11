@@ -1,17 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import * as express from 'express';
+import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    bodyParser: false,
-  });
+  const app = await NestFactory.create(AppModule);
   
-  app.use(express.json());
-  app.use('/webhooks/stripe', express.raw({ type: 'application/json' }));
-  
+  app.use(
+    '/webhooks/stripe',
+    bodyParser.raw({ type: 'application/json' }),
+  );
+
   const corsOptions = {
-    origin: ["http://localhost:3000","https://launchkit-frontend-wheat.vercel.app"],
+    origin: ["http://localhost:3000","https://launchkit-frontend-wheat.vercel.app/"],
     credentials: true,
   };
   console.log('CORS enabled with origins:', corsOptions.origin);
