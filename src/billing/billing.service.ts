@@ -125,15 +125,26 @@ export class BillingService {
     return { url: session.url };
   }
 
-  async getSubscription(organizationId: string, userId: string): Promise<Subscription | null> {
+  async getSubscription(organizationId: string, userId: string): Promise<any> {
     const isAdmin = await this.isAdmin(userId, organizationId);
     if (!isAdmin) {
       throw new ForbiddenException('Only admin can view billing');
     }
 
-    return this.subscriptionRepository.findOne({
+    const sub = await this.subscriptionRepository.findOne({
       where: { organizationId },
     });
+
+    if (!sub) return null;
+
+    return {
+      id: sub.id,
+      plan: sub.plan,
+      status: sub.status,
+      stripeCustomerId: sub.stripeCustomerId,
+      stripeSubscriptionId: sub.stripeSubscriptionId,
+      currentPeriodEnd: sub.currentPeriodEnd ? Math.floor(sub.currentPeriodEnd.getTime() / 1000) : null,
+    };
   }
 
   async getBillingHistory(organizationId: string, userId: string): Promise<any[]> {
