@@ -113,6 +113,7 @@ export class OrganizationService {
       used: inv.used,
       expiresAt: inv.expiresAt,
       createdAt: inv.createdAt,
+      tempPassword: inv.tempPassword,
       inviteLink: `/signup?token=${inv.token}&email=${encodeURIComponent(inv.email)}`,
     }));
   }
@@ -146,6 +147,8 @@ export class OrganizationService {
     const token = uuidv4();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
+    
+    const tempPassword = uuidv4().replace(/-/g, '').substring(0, 12);
 
     const invitation = this.invitationRepository.create({
       email: dto.email,
@@ -153,6 +156,7 @@ export class OrganizationService {
       role: dto.role,
       token,
       expiresAt,
+      tempPassword,
     });
 
     const savedInvitation = await this.invitationRepository.save(invitation);
@@ -161,6 +165,7 @@ export class OrganizationService {
     
     return {
       ...savedInvitation,
+      tempPassword,
       inviteLink: `/signup?token=${token}&email=${encodeURIComponent(dto.email)}`,
     };
   }

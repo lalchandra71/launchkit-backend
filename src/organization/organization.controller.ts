@@ -115,4 +115,14 @@ export class OrganizationController {
   ) {
     return this.organizationService.revokeApiKey(orgId, req.user.userId, keyId);
   }
+
+  @Delete(':id/members/:userId')
+  @UseGuards(JwtAuthGuard)
+  async removeMember(
+    @Param('id') orgId: string,
+    @Param('userId') userId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.organizationService.removeMember(orgId, req.user.userId, userId);
+  }
 }
