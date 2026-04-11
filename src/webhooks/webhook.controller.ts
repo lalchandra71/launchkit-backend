@@ -43,21 +43,23 @@ export class WebhookController {
     const webhookSecret = this.configService.get<string>(
       'STRIPE_WEBHOOK_SECRET',
     );
-    
-    let event: any;
-    let payload: string;
 
-    if (req.rawBody) {
-      payload = req.rawBody;
-    } else if (typeof req.body === 'string') {
+    console.log('inside webhook');
+    
+    let payload: Buffer | string;
+    
+    if (req.body && Buffer.isBuffer(req.body)) {
       payload = req.body;
+    } else if (req.rawBody) {
+      payload = req.rawBody;
     } else {
       payload = JSON.stringify(req.body);
     }
 
+    let event: any;
     try {
       event = this.stripe.webhooks.constructEvent(
-        Buffer.from(payload),
+        payload,
         signature,
         webhookSecret,
       );

@@ -3,8 +3,11 @@ import { AppModule } from './app.module';
 import * as express from 'express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bodyParser: false,
+  });
   
+  app.use(express.json());
   app.use('/webhooks/stripe', express.raw({ type: 'application/json' }));
   
   const corsOptions = {
