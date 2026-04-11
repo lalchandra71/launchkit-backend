@@ -82,37 +82,39 @@ export class WebhookController {
     const organizationId = session.metadata?.organizationId;
     if (!organizationId || typeof organizationId !== 'string') return;
 
-    const existingSubscription = await this.subscriptionRepository.findOne({
-      where: { organizationId, status: 'active' },
-    });
-    if (existingSubscription) {
-      existingSubscription.status = 'inactive';
-      await this.subscriptionRepository.save(existingSubscription);
-    }
-
     const stripeSubscription = await this.stripe.subscriptions.retrieve(session.subscription);
     const plan = stripeSubscription.items.data[0]?.price?.id;
 
     let planName = 'pro';
     const pricePro = this.configService.get('STRIPE_PRICE_PRO');
     const priceEnterprise = this.configService.get('STRIPE_PRICE_ENTERPRISE');
-    const priceStarter = this.configService.get('STRIPE_PRICE_STARTER');
     
     if (plan === priceEnterprise) {
       planName = 'enterprise';
-    } else if (plan === priceStarter) {
-      planName = 'starter';
     }
 
-    const newSubscription = this.subscriptionRepository.create({
-      organizationId,
-      stripeCustomerId: session.customer,
-      stripeSubscriptionId: session.subscription,
-      plan: planName,
-      status: 'active',
-      currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+    const existingSubscription = await this.subscriptionRepository.findOne({
+      where: { organizationId },
     });
-    await this.subscriptionRepository.save(newSubscription);
+
+    if (existingSubscription) {
+      existingSubscription.stripeCustomerId = session.customer;
+      existingSubscription.stripeSubscriptionId = session.subscription;
+      existingSubscription.plan = planName;
+      existingSubscription.status = 'active';
+      existingSubscription.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
+      await this.subscriptionRepository.save(existingSubscription);
+    } else {
+      const newSubscription = this.subscriptionRepository.create({
+        organizationId,
+        stripeCustomerId: session.customer,
+        stripeSubscriptionId: session.subscription,
+        plan: planName,
+        status: 'active',
+        currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+      });
+      await this.subscriptionRepository.save(newSubscription);
+    }
   }
 
   private async handleSubscriptionUpdate(subscription: any): Promise<void> {
@@ -120,6 +122,18 @@ export class WebhookController {
       where: { stripeSubscriptionId: subscription.id },
     });
     if (!sub) return;
+
+    const plan = subscription.items?.data[0]?.price?.id;
+    const pricePro = this.configService.get('STRIPE_PRICE_PRO');
+    const priceEnterprise = this.configService.get('STRIPE_PRICE_ENTERPRISE');
+
+    if (plan === priceEnterprise) {
+      sub.plan = 'enterprise';
+    } else if (plan === pricePro) {
+      sub.plan = 'pro';
+    } else {
+      sub.plan = 'free';
+    }
 
     sub.status = subscription.status;
     sub.currentPeriodEnd = new Date(subscription.current_period_end * 1000);

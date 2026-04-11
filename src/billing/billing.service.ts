@@ -209,7 +209,7 @@ export class BillingService {
       {
         id: 'pro',
         name: 'Pro',
-        price: 50,
+        price: 100,
         priceId: this.configService.get('STRIPE_PRICE_PRO') || '',
         features: [
           'Up to 5 Organizations',
@@ -232,7 +232,7 @@ export class BillingService {
       {
         id: 'enterprise',
         name: 'Enterprise',
-        price: 100,
+        price: 50,
         priceId: this.configService.get('STRIPE_PRICE_ENTERPRISE') || '',
         features: [
           'Unlimited Organizations',
