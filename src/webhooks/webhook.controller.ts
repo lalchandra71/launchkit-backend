@@ -58,6 +58,7 @@ export class WebhookController {
 
     switch (event.type) {
       case 'checkout.session.completed': {
+        console.log("checkout-session-completed")
         const session = event.data.object;
         await this.handleCheckoutComplete(session);
         break;
