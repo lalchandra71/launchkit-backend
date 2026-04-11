@@ -1,8 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import * as express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  app.use('/webhooks/stripe', express.raw({ type: 'application/json' }));
   
   const corsOptions = {
     origin: ["http://localhost:3000","https://launchkit-frontend-wheat.vercel.app"],

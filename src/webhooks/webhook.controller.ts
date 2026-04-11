@@ -43,16 +43,26 @@ export class WebhookController {
     const webhookSecret = this.configService.get<string>(
       'STRIPE_WEBHOOK_SECRET',
     );
+    
     let event: any;
+    let payload: string;
+
+    if (req.rawBody) {
+      payload = req.rawBody;
+    } else if (typeof req.body === 'string') {
+      payload = req.body;
+    } else {
+      payload = JSON.stringify(req.body);
+    }
 
     try {
-      const rawBody = req.rawBody || JSON.stringify(req.body);
       event = this.stripe.webhooks.constructEvent(
-        Buffer.from(rawBody),
+        Buffer.from(payload),
         signature,
         webhookSecret,
       );
-    } catch {
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err.message);
       throw new Error(`Webhook signature verification failed`);
     }
 
