@@ -30,13 +30,29 @@ export class AuthService {
   async signupWithInvite(
     signupDto: SignupWithInviteDto,
   ): Promise<{ accessToken: string; user: Partial<User> }> {
-    const randomPassword = uuidv4().replace(/-/g, '').substring(0, 16);
+    const invitation = await this.organizationService.findInvitationByToken(signupDto.inviteToken);
+    if (!invitation) {
+      throw new BadRequestException('Invalid invitation token');
+    }
+
+    const tempPassword = invitation.tempPassword || uuidv4().replace(/-/g, '').substring(0, 16);
     
-    const user = await this.usersService.create({
-      email: signupDto.email,
-      password: randomPassword,
-      name: signupDto.name,
-    });
+    let user = await this.usersService.findByEmail(signupDto.email);
+    
+    if (user) {
+      user = await this.usersService.update(user.id, {
+        password: tempPassword,
+        name: signupDto.name,
+        status: 'active',
+      });
+    } else {
+      user = await this.usersService.createWithStatus(
+        signupDto.email,
+        tempPassword,
+        signupDto.name,
+        'active',
+      );
+    }
     
     await this.organizationService.acceptInvitation(signupDto.inviteToken, user.id);
     

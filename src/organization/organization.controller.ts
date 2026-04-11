@@ -113,7 +113,8 @@ export class OrganizationController {
     @Param('keyId') keyId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.organizationService.revokeApiKey(orgId, req.user.userId, keyId);
+    await this.organizationService.revokeApiKey(orgId, req.user.userId, keyId);
+    return { success: true, message: 'API key revoked successfully' };
   }
 
   @Delete(':id/members/:userId')
@@ -123,6 +124,7 @@ export class OrganizationController {
     @Param('userId') userId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.organizationService.removeMember(orgId, req.user.userId, userId);
+    await this.organizationService.removeMember(orgId, req.user.userId, userId);
+    return { success: true, message: 'Member removed successfully' };
   }
 }

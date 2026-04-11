@@ -14,10 +14,10 @@ export class Subscription {
   @Column()
   organizationId: string;
 
-  @Column()
+  @Column({ nullable: true })
   stripeCustomerId: string;
 
-  @Column()
+  @Column({ nullable: true })
   stripeSubscriptionId: string;
 
   @Column()

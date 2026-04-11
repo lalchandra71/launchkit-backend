@@ -20,6 +20,12 @@ export class User {
   @Column()
   name: string;
 
+  @Column({ default: 'active' })
+  status: string;
+
+  @Column({ nullable: true })
+  inviteToken: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -88,7 +88,8 @@ export class BillingController {
     @Body() body: { organizationId: string },
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.billingService.cancelSubscription(body.organizationId, req.user.userId);
+    await this.billingService.cancelSubscription(body.organizationId, req.user.userId);
+    return { success: true, message: 'Subscription cancelled successfully' };
   }
 
   @Get('plans')

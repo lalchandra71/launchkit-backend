@@ -20,6 +20,12 @@ import { CreateOrganizationDto, InviteUserDto } from './dto/organization.dto';
 const VALID_ROLES = ['admin', 'viewer', 'member'];
 
 const ADMIN_ROLES = ['admin'];
+const CAN_EDIT_ROLES = ['admin', 'member'];
+const CAN_INVITE_ROLES = ['admin', 'member'];
+const CAN_REMOVE_ROLES = ['admin'];
+const CAN_MANAGE_BILLING_ROLES = ['admin'];
+const CAN_MANAGE_API_KEY_ROLES = ['admin'];
+const CAN_DELETE_ACCOUNT_ROLES = ['admin'];
 
 @Injectable()
 export class OrganizationService {
@@ -104,18 +110,28 @@ export class OrganizationService {
       where: { organizationId },
       order: { createdAt: 'DESC' },
     });
+
+    const result: any[] = [];
+    for (const inv of invitations) {
+      const user = await this.userRepository.findOne({
+        where: { email: inv.email, inviteToken: inv.token },
+      });
+      
+      result.push({
+        id: inv.id,
+        email: inv.email,
+        role: inv.role,
+        status: inv.status,
+        used: inv.used,
+        expiresAt: inv.expiresAt,
+        createdAt: inv.createdAt,
+        tempPassword: user?.password || inv.tempPassword,
+        inviteLink: `/signup?token=${inv.token}&email=${encodeURIComponent(inv.email)}`,
+        userId: user?.id || null,
+      });
+    }
     
-    return invitations.map(inv => ({
-      id: inv.id,
-      email: inv.email,
-      role: inv.role,
-      status: inv.status,
-      used: inv.used,
-      expiresAt: inv.expiresAt,
-      createdAt: inv.createdAt,
-      tempPassword: inv.tempPassword,
-      inviteLink: `/signup?token=${inv.token}&email=${encodeURIComponent(inv.email)}`,
-    }));
+    return result;
   }
 
   async invite(
@@ -130,6 +146,18 @@ export class OrganizationService {
 
     if (!VALID_ROLES.includes(dto.role)) {
       throw new BadRequestException(`Invalid role. Valid roles: ${VALID_ROLES.join(', ')}`);
+    }
+
+    const existingUser = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
+    if (existingUser) {
+      const membership = await this.membershipRepository.findOne({
+        where: { userId: existingUser.id, organizationId },
+      });
+      if (membership) {
+        throw new BadRequestException('User is already a member of this organization');
+      }
     }
 
     const existingInvite = await this.invitationRepository.findOne({
@@ -149,6 +177,22 @@ export class OrganizationService {
     expiresAt.setDate(expiresAt.getDate() + 7);
     
     const tempPassword = uuidv4().replace(/-/g, '').substring(0, 12);
+
+    if (existingUser) {
+      existingUser.status = 'invited';
+      existingUser.inviteToken = token;
+      existingUser.password = tempPassword;
+      await this.userRepository.save(existingUser);
+    } else {
+      const tempUser = this.userRepository.create({
+        email: dto.email,
+        password: tempPassword,
+        name: dto.email.split('@')[0],
+        status: 'invited',
+        inviteToken: token,
+      });
+      await this.userRepository.save(tempUser);
+    }
 
     const invitation = this.invitationRepository.create({
       email: dto.email,
@@ -215,8 +259,8 @@ export class OrganizationService {
   }
 
   async update(id: string, requesterUserId: string, dto: { name?: string }): Promise<Organization> {
-    const isAdmin = await this.isAdmin(requesterUserId, id);
-    if (!isAdmin) {
+    const canEdit = await this.canEdit(requesterUserId, id);
+    if (!canEdit) {
       throw new ForbiddenException('Only admin or owner can update organization');
     }
     const org = await this.findById(id);
@@ -239,7 +283,7 @@ export class OrganizationService {
     const requesterMembership = await this.membershipRepository.findOne({
       where: { organizationId: orgId, userId: requesterUserId },
     });
-    if (!requesterMembership || !ADMIN_ROLES.includes(requesterMembership.role)) {
+    if (!requesterMembership || !CAN_REMOVE_ROLES.includes(requesterMembership.role)) {
       throw new ForbiddenException('Only admin can remove members');
     }
     
@@ -306,7 +350,33 @@ export class OrganizationService {
     const membership = await this.membershipRepository.findOne({
       where: { userId, organizationId },
     });
-    return membership ? ['admin', 'member'].includes(membership.role) : false;
+    return membership ? CAN_EDIT_ROLES.includes(membership.role) : false;
+  }
+
+  async canInvite(userId: string, organizationId: string): Promise<boolean> {
+    const membership = await this.membershipRepository.findOne({
+      where: { userId, organizationId },
+    });
+    return membership ? CAN_INVITE_ROLES.includes(membership.role) : false;
+  }
+
+  async canManageApiKeys(userId: string, organizationId: string): Promise<boolean> {
+    const membership = await this.membershipRepository.findOne({
+      where: { userId, organizationId },
+    });
+    return membership ? CAN_MANAGE_API_KEY_ROLES.includes(membership.role) : false;
+  }
+
+  async canManageBilling(userId: string, organizationId: string): Promise<boolean> {
+    const membership = await this.membershipRepository.findOne({
+      where: { userId, organizationId },
+    });
+    return membership ? CAN_MANAGE_BILLING_ROLES.includes(membership.role) : false;
+  }
+
+  async canDeleteAccount(userId: string): Promise<boolean> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    return user ? CAN_DELETE_ACCOUNT_ROLES.includes(user.status) : false;
   }
 
   async getDashboard(organizationId: string, userId: string): Promise<any> {
@@ -335,11 +405,24 @@ export class OrganizationService {
 
     const planLimit = subscription?.plan === 'Free' ? 5 : 'Unlimited';
 
+    const canEdit = CAN_EDIT_ROLES.includes(membership?.role);
+    const canInvite = CAN_INVITE_ROLES.includes(membership?.role);
+    const canRemoveMember = CAN_REMOVE_ROLES.includes(membership?.role);
+    const canManageBilling = CAN_MANAGE_BILLING_ROLES.includes(membership?.role);
+    const canManageApiKeys = CAN_MANAGE_API_KEY_ROLES.includes(membership?.role);
+    const canDeleteAccount = CAN_DELETE_ACCOUNT_ROLES.includes(membership?.role);
+
     return {
       organization: org,
       members: members,
       memberCount: members.length,
       userRole,
+      canEdit,
+      canInvite,
+      canRemoveMember,
+      canManageBilling,
+      canManageApiKeys,
+      canDeleteAccount,
       subscription: subscription ? {
         plan: subscription.plan,
         status: subscription.status,
@@ -402,8 +485,8 @@ export class OrganizationService {
   }
 
   async createApiKey(organizationId: string, userId: string, name: string): Promise<ApiKey> {
-    const isAdmin = await this.isAdmin(userId, organizationId);
-    if (!isAdmin) {
+    const canManage = await this.canManageApiKeys(userId, organizationId);
+    if (!canManage) {
       throw new ForbiddenException('Only admin can create API keys');
     }
 
@@ -423,8 +506,8 @@ export class OrganizationService {
   }
 
   async revokeApiKey(organizationId: string, userId: string, apiKeyId: string): Promise<void> {
-    const isAdmin = await this.isAdmin(userId, organizationId);
-    if (!isAdmin) {
+    const canManage = await this.canManageApiKeys(userId, organizationId);
+    if (!canManage) {
       throw new ForbiddenException('Only admin can revoke API keys');
     }
 

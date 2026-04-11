@@ -183,12 +183,16 @@ export class BillingService {
     const subscription = await this.subscriptionRepository.findOne({
       where: { organizationId },
     });
-    if (!subscription || !subscription.stripeSubscriptionId) {
+    if (!subscription) {
       throw new NotFoundException('No active subscription');
     }
 
-    await this.stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+    if (subscription.stripeSubscriptionId) {
+      await this.stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+    }
+    
     subscription.stripeSubscriptionId = '';
+    subscription.stripeCustomerId = '';
     subscription.plan = 'free';
     subscription.status = 'cancelled';
     await this.subscriptionRepository.save(subscription);
