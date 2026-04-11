@@ -33,4 +33,7 @@ export class Invitation {
 
   @Column({ nullable: true })
   expiresAt: Date;
+
+  @Column({ nullable: true })
+  tempPassword: string;
 }
